@@ -1,0 +1,36 @@
+BoneNames:
+left_toe: "ltoe_smpl"; right_toe: "rtoe_smpl"; left_ankle: "lank_smpl"; right_ankle: "rank_smpl"; left_knee: "lkne_smpl"; right_knee: "rkne_smpl"; left_hip: "lhip_smpl"; right_hip: "rhip_smpl"; pelvis: "pelv_smpl"; spine_naval: "bell_smpl"; spine_chest: "spin_smpl"; neck: "neck_smpl"; left_shoulder: "lsho_smpl"; right_shoulder: "rsho_smpl"
+
+start_position_angle: 150
+
+transform_x: 3000
+transform_y: -3000
+transform_z: 3000
+
+Depth:
+True
+depth_threshold: -0.01
+
+KneeDir:
+True
+deviation_knee_angle_low: -45
+deviation_knee_angle_high: -90
+
+ArchedBack:
+True
+min_roundedback_angle_low: 166.0
+max_roundedback_angle_low: 180.0
+min_roundedback_angle_high: 166.0
+max_roundedback_angle_high: 180.0
+
+HipsShootUp:
+True
+depth_angle_threshold: -6.0
+
+ComingUpLine:
+True
+line_bar_threshold_high: -4.0
+line_bar_threshold_low: 0.0
+
+RecordData:
+False
