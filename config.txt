@@ -13,7 +13,7 @@ depth_threshold: -0.01
 
 KneeDir:
 True
-deviation_knee_angle_low: -45
+deviation_knee_angle_low: -30
 deviation_knee_angle_high: -90
 
 ArchedBack:
@@ -25,7 +25,7 @@ max_roundedback_angle_high: 180.0
 
 HipsShootUp:
 True
-depth_angle_threshold: -6.0
+depth_angle_threshold: -3.0
 
 ComingUpLine:
 True

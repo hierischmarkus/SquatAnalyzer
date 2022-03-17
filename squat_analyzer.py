@@ -234,11 +234,11 @@ class SquatAnalyzer:
         middle_point_bottom = VectorsPY.Vector3(right_ankle.x/2, 0.0, 0.0)
         angle = self.get_angle_between_3_points(
             middle_point_bottom, pelvis, spine_chest)
-        if((pelvis.y - sum(self.last_pelvis_values)/len(self.last_pelvis_values) < -0.05) & self.correct_depth()):
+        if(self.correct_depth()):
             self.depth_angle = angle
 
         #print(angle - self.depth_angle)
-        if(angle - self.depth_angle < self.depth_angle_threshold):
+        if(angle - self.depth_angle < self.depth_angle_threshold and pelvis.y >= sum(self.last_pelvis_values)/len(self.last_pelvis_values)):
             return False
         else:
             return True
