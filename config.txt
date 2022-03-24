@@ -25,12 +25,12 @@ max_roundedback_angle_high: 180.0
 
 HipsShootUp:
 True
-depth_angle_threshold: -3.0
+depth_angle_threshold: -0.5
 
 ComingUpLine:
 True
-line_bar_threshold_high: -4.0
-line_bar_threshold_low: 0.0
+line_bar_threshold_high: 4.0
+line_bar_threshold_low: 8.0
 
 RecordData:
 False

@@ -36,6 +36,9 @@ class SquatAnalyzer:
             re.search('start_position_angle: (.*)\n', text).group(1))
         self.is_startposition = False
 
+        # body proportion
+        self.body_proportion = 0.0
+
         # correct depth threshold
         self.check_depth = re.search('Depth:\n(.*)\n', text).group(1) == 'True'
         self.depth_threshold = float(
@@ -82,10 +85,12 @@ class SquatAnalyzer:
         self._line_of_bar = True
         self.reference_point = 0.0
         self.reference_angle_line = 0.0
-        self.line_bar_threshold_high = float(
-            re.search('line_bar_threshold_high: (.*)', text).group(1))
-        self.line_bar_threshold_low = float(
-            re.search('line_bar_threshold_low: (.*)', text).group(1))
+        self.line_bar_threshold_short_torso = float(
+            re.search('line_bar_threshold_short_torso: (.*)', text).group(1))
+        self.line_bar_threshold_long_torso = float(
+            re.search('line_bar_threshold_long_torso: (.*)', text).group(1))
+        self.line_bar_deviation_high = float(
+            re.search('line_bar_deviation_high: (.*)', text).group(1))
 
         # recording the detection
         self.do_record = re.search(
@@ -117,6 +122,12 @@ class SquatAnalyzer:
                     left_ankle, left_knee, left_hip) > self.start_position_angle)
                 if(self.is_startposition):
                     self.max_distance_standing = left_hip.y - left_knee.y + self.depth_threshold
+                    torso = self.get_vector_length(VectorsPY.Vector(
+                        self.get_bone('neck')-self.get_bone('pelvis')))
+                    femur = self.get_vector_length(VectorsPY.Vector(
+                        self.get_bone('left_hip') - self.get_bone('left_knee')))
+                    if(torso != 0):
+                        self.body_proportion = femur/torso
             pelvis = self.get_bone('pelvis')
             if(len(self.last_pelvis_values) > 10):
                 self.last_pelvis_values.pop()
@@ -189,8 +200,6 @@ class SquatAnalyzer:
         angle2 = self.get_angle_between_3_points(
             pelvis_no_y, ankle_no_y, toe_no_y)
 
-        # print(angle1-angle2)
-
         if(self.is_startposition or self.current_depth() > self.max_distance_standing-self.max_distance_standing/2):
             return True
         else:
@@ -220,7 +229,8 @@ class SquatAnalyzer:
         reference_angle_max = self.mapping_cut(self.current_depth(), 0.0, self.max_distance_standing,
                                                self.max_roundedback_angle_low, self.max_roundedback_angle_high)
         angle = self.get_angle_between_3_points(pelvis, spine_chest, neck)
-        # print(angle)
+        pelvis_y_zero = VectorsPY.Vector3(pelvis.x, 0, pelvis.z)
+        print(self.get_angle_between_3_points(pelvis_y_zero, pelvis, neck))
         if(angle > reference_angle_min and angle < reference_angle_max):
             return True
         else:
@@ -237,7 +247,7 @@ class SquatAnalyzer:
         if(self.correct_depth()):
             self.depth_angle = angle
 
-        #print(angle - self.depth_angle)
+        # print(angle - self.depth_angle)
         if(angle - self.depth_angle < self.depth_angle_threshold and pelvis.y >= sum(self.last_pelvis_values)/len(self.last_pelvis_values)):
             return False
         else:
@@ -248,8 +258,10 @@ class SquatAnalyzer:
         left_ankle = self.get_bone('left_ankle')
         left_toe = self.get_bone('left_toe')
 
+        torso_threshold = self.mapping_cut(self.body_proportion, 0.5, 1.0,
+                                           self.line_bar_threshold_short_torso, self.line_bar_threshold_short_torso)
         threshold = self.mapping_cut(self.current_depth(), 0.0, self.max_distance_standing/5,
-                                     self.line_bar_threshold_low, self.line_bar_threshold_high)
+                                     torso_threshold, torso_threshold+self.line_bar_deviation_high)
 
         p1 = VectorsPY.Vector3(
             left_shoulder.x, left_shoulder.y, left_shoulder.z)
