@@ -16,8 +16,8 @@ import csv
 
 class SquatAnalyzer:
 
-    def __init__(self, joint_names, joint_connections):
-        with open('config.txt') as f:
+    def __init__(self, joint_names, joint_connections, config_file_dir):
+        with open(config_file_dir) as f:
             text = f.read()
         bone_data = re.search('BoneNames:\n(.*)\n', text)
         self.bone_convention = bone_data.group(1).split(';')
@@ -52,22 +52,22 @@ class SquatAnalyzer:
             re.search('deviation_knee_angle_low: (.*)\n', text).group(1))
         self.deviation_knee_angle_high = float(
             re.search('deviation_knee_angle_high: (.*)\n', text).group(1))
-        self.reference_point_knee_direction_left = VectorsPY.Vector3(0, 0, 0)
-        self.reference_point_knee_direction_right = VectorsPY.Vector3(0, 0, 0)
+        self.reference_point_knee_angle_left = 0.0
+        self.reference_point_knee_angle_right = 0.0
         self._right_knee_in_right_position = True
         self._left_knee_in_right_position = True
 
         # rounded back angle parameters
         self.check_back = re.search(
             'ArchedBack:\n(.*)\n', text).group(1) == 'True'
-        self.min_roundedback_angle_low = float(
-            re.search('min_roundedback_angle_low: (.*)\n', text).group(1))
-        self.max_roundedback_angle_low = float(
-            re.search('max_roundedback_angle_low: (.*)\n', text).group(1))
-        self.min_roundedback_angle_high = float(
-            re.search('min_roundedback_angle_high: (.*)\n', text).group(1))
-        self.max_roundedback_angle_high = float(
-            re.search('max_roundedback_angle_high: (.*)\n', text).group(1))
+        self.min_roundedback_angle_upright = float(
+            re.search('min_roundedback_angle_upright: (.*)\n', text).group(1))
+        self.max_roundedback_angle_upright = float(
+            re.search('max_roundedback_angle_upright: (.*)\n', text).group(1))
+        self.min_roundedback_angle_lean_forward = float(
+            re.search('min_roundedback_angle_leanforward: (.*)\n', text).group(1))
+        self.max_roundedback_angle_lean_forward = float(
+            re.search('max_roundedback_angle_leanforward: (.*)\n', text).group(1))
         self._good_back_posture = True
 
         # hips shoot up
@@ -95,9 +95,6 @@ class SquatAnalyzer:
         # recording the detection
         self.do_record = re.search(
             'RecordData:\n(.*)\n', text).group(1) == 'True'
-        file = open('detection_analysis', 'w')
-        self.file_writer = csv.writer(file)
-        self.file_writer.writerow('huan')
         self.in_squat = False
         self.squat_count = 0
         self.depth_in_squat_reached = False
@@ -184,26 +181,27 @@ class SquatAnalyzer:
         else:
             return False
 
-    def knee_in_right_position(self, toe, knee, ankle):
+    def knee_in_right_position(self, toe, knee, ankle, ref_angle):
 
         threshold = self.mapping_cut(self.current_depth(), 0.0, self.max_distance_standing-self.max_distance_standing/10,
                                      self.deviation_knee_angle_low, self.deviation_knee_angle_high)
 
-        pelvis_no_y = VectorsPY.Vector3(self.get_bone(
-            'pelvis').x, 0, self.get_bone('pelvis').z)
+        pelvis = self.get_bone('pelvis')
+        pelvis_no_y = VectorsPY.Vector3(
+            pelvis.x, 0, ankle.z)
         ankle_no_y = VectorsPY.Vector3(ankle.x, 0, ankle.z)
-        knee_no_y = VectorsPY.Vector3(knee.x, 0, ankle.z)
+        knee_no_y = VectorsPY.Vector3(knee.x, 0, knee.z)
         toe_no_y = VectorsPY.Vector3(toe.x, 0, toe.z)
 
         angle1 = self.get_angle_between_3_points(
             pelvis_no_y, ankle_no_y, knee_no_y)
-        angle2 = self.get_angle_between_3_points(
-            pelvis_no_y, ankle_no_y, toe_no_y)
+
+        # print(angle1-ref_angle)
 
         if(self.is_startposition or self.current_depth() > self.max_distance_standing-self.max_distance_standing/2):
             return True
         else:
-            if(angle1-angle2 < threshold):
+            if(angle1-ref_angle < threshold and self.get_bone('pelvis').y <= sum(self.last_pelvis_values)/len(self.last_pelvis_values)):
                 return False
             else:
                 return True
@@ -212,25 +210,43 @@ class SquatAnalyzer:
         left_knee = self.get_bone('left_knee')
         left_toe = self.get_bone('left_toe')
         left_ankle = self.get_bone('left_ankle')
-        return self.knee_in_right_position(left_toe, left_knee, left_ankle)
+        pelvis = self.get_bone('pelvis')
+        if(self.is_startposition):
+            self.reference_point_knee_angle_left = self.get_angle_between_3_points(
+                VectorsPY.Vector3(pelvis.x, 0, left_ankle.z), VectorsPY.Vector3(left_ankle.x, 0, left_ankle.z), VectorsPY.Vector3(left_toe.x, 0, left_toe.z))
+        return self.knee_in_right_position(left_toe, left_knee, left_ankle, self.reference_point_knee_angle_left)
 
     def right_knee_in_right_position(self):
         right_knee = self.get_bone('right_knee')
         right_toe = self.get_bone('right_toe')
         right_ankle = self.get_bone('right_ankle')
-        return self.knee_in_right_position(right_toe, right_knee, right_ankle)
+        pelvis = self.get_bone('pelvis')
+        if(self.is_startposition):
+            self.reference_point_knee_angle_right = self.get_angle_between_3_points(
+                VectorsPY.Vector3(pelvis.x, 0, right_ankle.z), VectorsPY.Vector3(right_ankle.x, 0, right_ankle.z), VectorsPY.Vector3(right_toe.x, 0, right_toe.z))
+        return self.knee_in_right_position(right_toe, right_knee, right_ankle, self.reference_point_knee_angle_right)
 
     def good_back_posture(self):
         pelvis = self.get_bone('pelvis')
         spine_chest = self.get_bone('spine_chest')
         neck = self.get_bone('neck')
-        reference_angle_min = self.mapping_cut(self.current_depth(), 0.0, self.max_distance_standing,
-                                               self.min_roundedback_angle_low, self.min_roundedback_angle_high)
-        reference_angle_max = self.mapping_cut(self.current_depth(), 0.0, self.max_distance_standing,
-                                               self.max_roundedback_angle_low, self.max_roundedback_angle_high)
-        angle = self.get_angle_between_3_points(pelvis, spine_chest, neck)
         pelvis_y_zero = VectorsPY.Vector3(pelvis.x, 0, pelvis.z)
-        print(self.get_angle_between_3_points(pelvis_y_zero, pelvis, neck))
+        ref_angle = self.get_angle_between_3_points(
+            pelvis_y_zero, pelvis, neck)
+        reference_angle_min = self.mapping_cut(ref_angle, 90.0, 180.0,
+                                               self.min_roundedback_angle_lean_forward, self.min_roundedback_angle_upright)
+        reference_angle_max = self.mapping_cut(ref_angle, 90.0, 180.0,
+                                               self.max_roundedback_angle_lean_forward, self.max_roundedback_angle_upright)
+        angle = self.get_angle_between_3_points(pelvis, spine_chest, neck)
+        # print("1")
+        # print(reference_angle_min)
+        # print("2")
+        # print(reference_angle_max)
+        # print("3")
+        # print(angle)
+        # print("...")
+        # print("...")
+        # print(angle)
         if(angle > reference_angle_min and angle < reference_angle_max):
             return True
         else:
@@ -258,8 +274,10 @@ class SquatAnalyzer:
         left_ankle = self.get_bone('left_ankle')
         left_toe = self.get_bone('left_toe')
 
+        # print(self.body_proportion)
+
         torso_threshold = self.mapping_cut(self.body_proportion, 0.5, 1.0,
-                                           self.line_bar_threshold_short_torso, self.line_bar_threshold_short_torso)
+                                           self.line_bar_threshold_long_torso, self.line_bar_threshold_short_torso)
         threshold = self.mapping_cut(self.current_depth(), 0.0, self.max_distance_standing/5,
                                      torso_threshold, torso_threshold+self.line_bar_deviation_high)
 
@@ -272,6 +290,8 @@ class SquatAnalyzer:
         if(self.is_startposition):
             self.reference_angle_line = self.get_angle_between_3_points(
                 p1, p2, p3)
+
+        # print(current_angle-self.reference_angle_line)
 
         if(current_angle - self.reference_angle_line < threshold):
             return False
@@ -302,35 +322,35 @@ class SquatAnalyzer:
     def recording(self):
         if(self.is_startposition):
             if(self.depth_in_squat_reached == True):
-                print("back again")
                 self.in_squat = False
                 self.depth_in_squat_reached = False
             if(self.in_squat == False):
                 self.in_squat = True
                 self.squat_count += 1
-                row = 'squat: ' + str(self.squat_count) + '\n'
+                row = ";"+str(self.squat_count)+'\n'
                 self.record_data += row
-        if(self.in_squat == True and self.correct_depth()):
-            print("depth reached")
+        if(self.in_squat == True and self.current_depth() < 0.07):
             self.depth_in_squat_reached = True
 
         if(self.in_squat):
             if(self._left_knee_in_right_position == False):
-                self.record_data += "Left Knee wrong in depth: " + \
-                    str(self.current_depth()) + '\n'
+                self.record_data += "LK" + '\n'
             if(self._right_knee_in_right_position == False):
-                self.record_data += "Right Knee wrong in depth: " + \
-                    str(self.current_depth()) + '\n'
+                self.record_data += "RK" + '\n'
             if(self._good_back_posture == False):
-                self.record_data += "Bend Back in depth: " + \
-                    str(self.current_depth()) + '\n'
+                self.record_data += "BB" + '\n'
             if(self._no_pelvis_shoot_up == False):
-                self.record_data += "Hips shoot up in depth: " + \
-                    str(self.current_depth()) + '\n'
+                self.record_data += "HS" + '\n'
             if(self._line_of_bar == False):
-                self.record_data += "Not Line of bar in depth: " + \
-                    str(self.current_depth()) + '\n'
-            print(self.record_data)
+                self.record_data += "LB" + '\n'
+            if(self._correct_depth == True):
+                self.record_data += "DR" + '\n'
+
+    def write_record_data(self, file_name):
+        file = open(file_name, 'w')
+        file_writer = csv.writer(file)
+        for line in self.record_data.splitlines():
+            file_writer.writerow(line)
 
     def visualization(self, frame, poses2d, show_infotext):
 
